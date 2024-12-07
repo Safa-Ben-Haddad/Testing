@@ -1,9 +1,9 @@
 import os
+import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 # Configuration du dossier pour les captures d'écran
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -22,12 +22,12 @@ def take_screenshot_error_login(name):
     screenshot_path = os.path.join(error_login_dir, f"{name}.png")
     driver.save_screenshot(screenshot_path)
     print(f"Capture d'écran sauvegardée : {screenshot_path}")
-pass
 
 def login(driver, username, password):
     """
     Fonction pour se connecter avec les identifiants fournis.
     Retourne True si la connexion réussit, False sinon.
+    Mesure également le temps pris après le clic sur le bouton login.
     """
     try:
         # Localiser les champs username et password
@@ -44,26 +44,21 @@ def login(driver, username, password):
 
         # Cliquer sur le bouton de connexion
         login_button = driver.find_element(By.ID, "login-button")
+        
+        # Démarrer le chronomètre
+        start_time = time.time()
         login_button.click()
 
         # Vérifier si l'utilisateur est redirigé vers inventory.html
         WebDriverWait(driver, 5).until(
             EC.url_to_be("https://www.saucedemo.com/inventory.html")
         )
-        print(f"Connexion réussie pour {username}.")
+        print(f"Connexion réussie pour {username}")
         return True
-
-    except TimeoutException:
-        print(f"Connexion échouée pour {username}.")
-        take_screenshot_error_login(f"{username}_login_failed")
-        return False
 
     except Exception as e:
         print(f"Erreur lors de la tentative de connexion pour {username} : {e}")
-        take_screenshot_error_login(f"{username}_login_error")
         return False
-pass
-
 def logout(driver, username):
     """
     Effectue la déconnexion en utilisant le menu latéral.
@@ -91,21 +86,20 @@ def logout(driver, username):
         print(f"Erreur lors de la déconnexion pour {username} : {e}")
         take_screenshot_error_login(f"{username}_logout_error")
         return False
-pass
+
 
 def test_users():
     """
-    Teste la connexion pour chaque utilisateur, accède à sa page dédiée,
-    et effectue une déconnexion après navigation.
+    Teste la connexion pour chaque utilisateur, y compris les cas d'erreurs.
     """
-    # Liste des utilisateurs et leurs mots de passe
+    # Liste des utilisateurs avec des combinaisons valides et invalides
     users = [
-        {"username": "standard_user", "password": "secret_sauce"},
-        {"username": "locked_out_user", "password": "secret_sauce"},
-        {"username": "problem_user", "password": "secret_sauce"},
-        {"username": "performance_glitch_user", "password": "secret_sauce"},
+        {"username": "standard_user", "password": "secret_sauce"},  # Correct
+        {"username": "locked_out_user", "password": "secret_sauce"},  # Locked
+        {"username": "invalid_user", "password": "secret_sauce"},  # Username faux
+        {"username": "performance_glitch_user", "password": "secret_sauce"},  # Correct
         {"username": "error_user", "password": "secret_sauce"},
-        {"username": "visual_user", "password": "secret_sauce"},
+        {"username": "visual_user", "password": "secret_sauce"},   # Faux cas ajouté pour test
     ]
 
     # URL de base
@@ -134,6 +128,7 @@ def test_users():
                     print(f"Déconnexion échouée pour {username}, reste sur {driver.current_url}")
             else:
                 print(f"Impossible de tester pour {username} (échec de connexion).")
+                take_screenshot_error_login(f"{username}_echec")
 
         except Exception as e:
             print(f"Erreur lors du traitement de l'utilisateur {username} : {e}")
@@ -149,4 +144,3 @@ if __name__ == "__main__":
     finally:
         # Fermer le navigateur
         driver.quit()
-

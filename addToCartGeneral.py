@@ -4,6 +4,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
 
 # Configuration des captures d'écran
@@ -15,7 +16,7 @@ def create_user_screenshot_dir(username):
     """
     Crée un sous-dossier pour chaque utilisateur dans le dossier 'cart_error'.
     """
-    user_dir = os.path.join(screenshot_dir, "cart_error", username)
+    user_dir = os.path.join(screenshot_dir, "AddCartGeneral", username)
     os.makedirs(user_dir, exist_ok=True)
     return user_dir
 
@@ -64,44 +65,55 @@ def login(driver, username, password, user_dir):
 
     except TimeoutException:
         print(f"Connexion échouée pour {username}.")
-        take_screenshot(driver, user_dir, "login_failed")
         return False
 
     except Exception as e:
         print(f"Erreur lors de la tentative de connexion pour {username} : {e}")
         take_screenshot(driver, user_dir, "login_error")
         return False
-
 def add_to_cart(driver, user_dir):
     """
-    Ajoute tous les produits disponibles au panier.
+    Ajouter des produits au panier.
     """
     try:
-        products = driver.find_elements(By.CLASS_NAME, "inventory_item")
-        for product in products:
-            add_button = product.find_element(By.CLASS_NAME, "btn_inventory")
-            add_button.click()
-            time.sleep(1)
-        print("Tous les produits ont été ajoutés au panier.")
-    except Exception as e:
-        print(f"Erreur lors de l'ajout au panier : {e}")
-        take_screenshot(driver, user_dir, "add_to_cart_error")
+        # Localiser les boutons Ajouter
+        add_buttons = driver.find_elements(By.CLASS_NAME, "btn_inventory")
+        if not add_buttons:
+            raise Exception("Aucun bouton Ajouter trouvé.")
 
-def verify_cart(driver, expected_count, user_dir):
-    """
-    Vérifie si le panier contient le nombre d'articles attendus.
-    """
-    try:
-        cart = driver.find_element(By.CLASS_NAME, "shopping_cart_link")
-        cart_count = cart.text
-        assert cart_count == str(expected_count), f"Le panier contient {cart_count} éléments au lieu de {expected_count}"
-        print(f"Panier mis à jour : {cart_count} éléments")
-    except AssertionError as e:
-        print(e)
-        take_screenshot(driver, user_dir, "verify_cart_error")
+        # Ajouter chaque produit au panier et vérifier après chaque ajout
+        for index, button in enumerate(add_buttons):
+            try:
+                # Faire défiler jusqu'au bouton pour s'assurer qu'il est visible
+                driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", button)
+                time.sleep(1)  # Pause pour le défilement
+
+                # Cliquer sur le bouton
+                button.click()
+                time.sleep(1)  # Pause pour simuler l'utilisateur
+
+                # Vérifier le panier après chaque ajout
+                try:
+                    cart_badge = driver.find_element(By.CLASS_NAME, "shopping_cart_badge")
+                    cart_count = int(cart_badge.text) if cart_badge else 0
+
+                    if cart_count != index + 1:
+                        print(f"Produit {index + 1} non ajouté au panier correctement.")
+                        take_screenshot(driver, user_dir, f"error_ajout_verification_{index + 1}")
+                except Exception as e:
+                    print(f"Erreur lors de la vérification après ajout du produit {index + 1} : {e}")
+                    take_screenshot(driver, user_dir, f"error_verification_produit_{index + 1}")
+
+            except Exception as e:
+                print(f"Erreur lors de l'ajout du produit {index + 1} : {e}")
+                driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", button)
+                time.sleep(1)  # Pause pour le défilement
+                take_screenshot(driver, user_dir, f"error_ajout_produit_{index + 1}")
+
     except Exception as e:
-        print(f"Erreur lors de la vérification du panier : {e}")
-        take_screenshot(driver, user_dir, "verify_cart_error")
+        print(f"Erreur générale lors de l'ajout de produits au panier : {e}")
+        take_screenshot(driver, user_dir, "error_general")
+
 
 def logout(driver, user_dir):
     """
@@ -144,8 +156,7 @@ def test_user(username, password):
         time.sleep(2)
 
         if login(driver, username, password, user_dir):
-            add_to_cart(driver, user_dir)
-            verify_cart(driver, len(driver.find_elements(By.CLASS_NAME, "inventory_item")), user_dir)
+            add_to_cart(driver,user_dir)
             if not logout(driver, user_dir):
                 print(f"Déconnexion échouée pour {username}.")
         else:

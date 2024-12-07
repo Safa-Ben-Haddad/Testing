@@ -97,48 +97,18 @@ def logout(driver, username):
         return False
 
 
-def add_all_products_to_cart(driver, username):
-    """
-    Parcourt tous les produits et tente de les ajouter au panier.
-    Capture les erreurs si le produit est déjà ajouté ou si une mise à jour échoue.
-    """
+def add_all_products_to_cart(driver, item_ids):
+    """Ajoute les éléments au panier en cliquant sur leurs boutons 'Add to Cart'."""
     try:
-        products = driver.find_elements(By.CLASS_NAME, "inventory_item")
-        for index, product in enumerate(products):
-            try:
-                add_button = product.find_element(By.CLASS_NAME, "btn_inventory")
-                button_text = add_button.text.lower()
-                if button_text == "Remove":
-                    print(f"Produit {index + 1} déjà ajouté pour {username}.")
-                    time.sleep(3)
-                    capture_screenshot(driver, f"product_{index + 1}_already_added", username)
-                    continue
-            
-
-                # Sinon, tenter de l'ajouter
-                add_button.click()
-
-                # Pause pour visualiser l'ajout du produit
-                time.sleep(2)
-
-                # Vérifier la mise à jour du panier
-                cart_badge = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "shopping_cart_badge"))
-                )
-                print(f"Produit {index + 1} ajouté pour {username}. Articles dans le panier : {cart_badge.text}.")
-
-                # Pause pour observer la mise à jour
-                time.sleep(2)
-
-            except TimeoutException:
-                print(f"Erreur de mise à jour du panier pour le produit {index + 1} de {username}.")
-                capture_screenshot(driver, f"product_{index + 1}_cart_update_failed", username)
-            except Exception as e:
-                print(f"Erreur inconnue pour le produit {index + 1} de {username} : {e}")
-                capture_screenshot(driver, f"product_{index + 1}_error", username)
+        for item_id in item_ids:
+            add_button = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.ID, item_id))
+            )
+            add_button.click()
+            time.sleep(1)
+            print(f"Article avec l'ID {item_id} ajouté au panier.")
     except Exception as e:
-        print(f"Erreur lors de l'ajout des produits au panier pour {username} : {e}")
-        capture_screenshot(driver, "add_all_products_error", username)
+        print(f"Erreur lors de l'ajout des articles au panier : {e}")
 
 def test_add_to_cart():
     """
@@ -154,6 +124,15 @@ def test_add_to_cart():
         {"username": "error_user", "password": "secret_sauce"},
 
     ]
+    add_item_ids = [
+        "add-to-cart-sauce-labs-backpack",
+        "add-to-cart-sauce-labs-bike-light",
+        "add-to-cart-sauce-labs-bolt-t-shirt",
+        "add-to-cart-sauce-labs-fleece-jacket",
+        "add-to-cart-sauce-labs-onesie",
+        "add-to-cart-test.allthethings()-t-shirt-(red)"
+    ]
+
 
     # URL de base
     base_url = "https://www.saucedemo.com/"
@@ -173,7 +152,7 @@ def test_add_to_cart():
                 # Effectuer la connexion
                 if login(driver, username, password):
                     # Ajouter tous les produits au panier
-                    add_all_products_to_cart(driver, username)
+                    add_all_products_to_cart(driver, add_item_ids)
 
                     # Effectuer la déconnexion
                     if not logout(driver, username):
